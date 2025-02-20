@@ -1,0 +1,69 @@
+# flat membrane demo
+variable     r0 equal  0.8
+variable     d1 equal  ${r0}
+variable     d2 equal  sqrt(3.0)*${r0}
+variable     d3 equal  3.0*${r0}
+variable     ro equal  2./${d1}/${d2}/${d3}
+
+variable     T  equal  0.231
+
+units        lj
+atom_style   ellipsoid
+
+boundary     p p p
+
+lattice      custom ${ro} a1 ${d1}  0.0 0.0 a2 0.0 ${d2}  0.0 &
+             a3 0.0 0.0 ${d3}  basis 0.0 0.0 0.0 basis 0.5  0.5  0.0
+
+region       box block   0 40  0 24  -20  20
+create_box   1 box
+region       membrane block  0 40  0 24 -0.5 0.5
+create_atoms 1 region membrane
+
+group        membrane  region membrane
+
+set type 1 mass  1.0
+
+set type 1 shape  1 1 1
+
+set          group all quat 0 -1 0  90
+
+velocity     all create ${T} 87287 loop geom
+mionimize    1.0e-5 1.0e-7 1000 10000
+
+pair_style   ylz  1.74
+pair_coeff   *  *   1.0  1.0  1   1.43  3.0  0.0 0.0  1.74
+neighbor     1.0 bin
+
+timestep     0.001
+
+dump         1 all atom 1000 dump_1_${r0}_${T}_111_onlymembrane.lammpstrj
+
+compute      pressure all pressure thermo_temp
+compute      pairdist all pair/local dist
+compute      avgdist all reduce ave c_pairdist
+
+
+fix          boxsize all print 100 "Step: $(step) Lx= $(lx) Ly= $(ly) Lx= $(lz) " file boxsize_${r0}.txt screen no
+
+thermo_style custom step temp press pxx pyy pzz xlo xhi ylo yhi zlo zhi
+thermo       200
+
+fix          1 all nph/asphere x 0.0 0.0 1000.0 y 0.0 0.0 1000.0 
+fix          2 all temp/rescale 100 ${T} ${T} 0.01 1.0 
+
+#fix          1 all nvt/asphere 
+#fix          2 all temp/rescale 100 ${T} ${T} 0.01 1.0 
+#fix          3 all press/berendsen iso 0.0 0.0 1000.0 
+
+run          100000
+
+
+
+
+
+
+
+
+
+
