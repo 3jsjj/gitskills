@@ -5,47 +5,43 @@
 
 variable	x equal 20
 variable	y equal 20
-variable	ylo equal -2.5
-variable	yhi equal 23
-variable        r0 equal  1.08
-variable        d1 equal  ${r0}
-variable        d2 equal  sqrt(3.0)*${r0}
-variable        d3 equal  3.0*${r0}
-variable        ro equal  2./${d1}/${d2}/${d3}
+variable       z equal 20
+variable	zlo equal -2.5
+variable	zhi equal 23
 
 variable	rho equal 0.6
 variable        t  equal  0.23
 variable        LD equal  1.0
 
-variable	srate equal 2.7
+variable	srate equal 0.1
 
 # problem setup
 
 units		lj
-dimension	2
+dimension	3
 atom_style	ellipsoid
 neigh_modify	delay 0 every 1
 
-lattice         sq2 ${rho}
-region          simbox block 0 $x ${ylo} ${yhi} -0.1 0.1
+lattice         sc ${rho}
+region          simbox block 0 $x 0 $y ${zlo} ${zhi}
 create_box      3 simbox
 create_atoms    1 box
 
 set type 1 mass  1.0
-set type 1 shape  1 1 0
+set type 1 shape  1 1 1
 set type 2 mass  1.0
-set type 2 shape  1 1 0
+set type 2 shape  1 1 1
 set type 3 mass  1.0
-set type 3 shape  1 1 0
-set             type 1 quat 1 0 0 0
-set             type 2 quat 1 0 0 0
-set             type 3 quat 1 0 0 0
+set type 3 shape  1 1 1
+set             type 1 quat 0 -1 0  90
+set             type 2 quat 0 -1 0  90
+set             type 3 quat 0 -1 0  90
 
 pair_style      ylz  1.74
 pair_coeff      *  *   1.0  1.0  2   1.43  3.0  0.0 0.0  1.74
 
-region		lower block INF INF INF 0.0 INF INF
-region		upper block INF INF $y INF INF INF
+region		lower block INF INF INF INF INF 0.0
+region		upper block INF INF INF INF $z  INF
 group		lower region lower
 group		upper region upper
 set		group lower type 2
@@ -55,45 +51,46 @@ group		flow subtract all wall
 
 
 velocity        flow create $t 97287
-velocity	upper set ${srate} 0.0 0.0 units box
+velocity	upper set 0.0 ${srate} 0.0 units box
 
-compute		thermal flow temp/asphere 0 1 0
-compute		flow flow temp
+compute	thermal flow temp
 
 fix             1 all nve/asphere
-fix	        2 flow langevin $t $t 0.1 498094 
+fix	         2 flow langevin $t $t 0.1 498094 
 fix_modify      2 temp thermal
 
 fix		3 wall setforce 0.0 0.0 0.0
 
-compute         layers all chunk/atom bin/1d y center 0.05 units reduced
-fix		4 all ave/chunk 20 500 10000 layers vx file profile.wall.2d
+compute        layers all chunk/atom bin/1d z center 0.05 units reduced
+fix		4 all ave/chunk 20 500 10000 layers vy file profile.wall.3d
 
-fix	        5 all enforce2d
 
 # equilibration run
 
-variable        ybox equal $y*ylat
-compute	 tilt flow temp/ramp vx 0 ${srate} y 0 ${ybox} units box
+variable        zbox equal $z*zlat
+compute	 tilt flow temp/ramp vy 0 ${srate} z 0 ${zbox} units box
 
 thermo          1000
-thermo_style	custom step temp c_tilt epair etotal press pxy
+thermo_style	custom step temp c_tilt epair etotal press pxy pyz pxz
+
+dump         2 all atom 1000 dump_111_onlymembrane.lammpstrj
 
 run	        20000
 
 # data gathering run
 
-variable	visc equal -pxy/(v_srate/ly)
+variable	visc equal -pyz/(v_srate/lz)
 fix		vave all ave/time 1000 1 1000 v_visc ave running
 
-thermo_style	custom step temp pxy v_visc f_vave
+thermo_style	custom step temp pyz v_visc f_vave
 thermo_modify	temp tilt
 
 # only need to run for 5000 steps to make a good 100-frame movie
 
-#dump	        1 all custom 50 dump.wall.2d id type x y z vx
+#dump	        1 all custom 50 dump.wall.2d id type x y z vx vy vz
 
-dump		2 all image 50 image.*.jpg vx type zoom 1.6 adiam 1.2
-dump_modify	2 pad 5 amap 0.0 ${srate} ca 0.0 2 min blue max red
+#dump		2 flow image 50 image.*.jpg vx type zoom 1.6 adiam 1.2 view 60 30
+#dump_modify	2 pad 5 amap 0.0 ${srate} ca 0.0 2 min blue max red
+
 
 run		50000
