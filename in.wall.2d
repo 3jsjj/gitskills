@@ -1,17 +1,15 @@
 # sample LAMMPS input script for viscosity of 2d LJ liquid
 # use shearing wall, thermostat via fix langevin
-
 # settings
 
 variable	x equal 20
 variable	y equal 20
-variable       z equal 20
+variable  z equal 20
 variable	zlo equal -2.5
 variable	zhi equal 23
 
-variable	rho equal 0.6
+variable	      rho equal 0.6
 variable        t  equal  0.23
-variable        LD equal  1.0
 
 variable	srate equal 0.1
 
@@ -49,7 +47,6 @@ set		group upper type 3
 group		wall union lower upper
 group		flow subtract all wall
 
-
 velocity        flow create $t 97287
 velocity	upper set 0.0 ${srate} 0.0 units box
 
@@ -63,7 +60,6 @@ fix		3 wall setforce 0.0 0.0 0.0
 
 compute        layers all chunk/atom bin/1d z center 0.05 units reduced
 fix		4 all ave/chunk 20 500 10000 layers vy file profile.wall.3d
-
 
 # equilibration run
 
@@ -84,13 +80,5 @@ fix		vave all ave/time 1000 1 1000 v_visc ave running
 
 thermo_style	custom step temp pyz v_visc f_vave
 thermo_modify	temp tilt
-
-# only need to run for 5000 steps to make a good 100-frame movie
-
-#dump	        1 all custom 50 dump.wall.2d id type x y z vx vy vz
-
-#dump		2 flow image 50 image.*.jpg vx type zoom 1.6 adiam 1.2 view 60 30
-#dump_modify	2 pad 5 amap 0.0 ${srate} ca 0.0 2 min blue max red
-
 
 run		50000
